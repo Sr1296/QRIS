@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generator QRIS Indonesia - Terverifikasi</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- QRCode.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="bg-slate-50 font-sans min-h-screen flex flex-col items-center justify-center p-4">
+
+    <!-- MODAL / HALAMAN VERIFIKASI KUNCI -->
+    <div id="authModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="max-w-sm w-full bg-white rounded-2xl shadow-2xl p-6 border border-slate-100 text-center space-y-4">
+            <div class="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+                🔒
+            </div>
+            <div>
+                <h2 class="text-xl font-bold text-slate-800">Verifikasi Akses</h2>
+                <p class="text-xs text-slate-500 mt-1">Masukkan kunci rahasia yang valid untuk menggunakan generator QRIS ini.</p>
+            </div>
+            <div>
+                <input type="password" id="authKeyInput" placeholder="Masukkan kunci verifikasi..." class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none text-sm text-center tracking-widest transition">
+                <p id="errorMsg" class="text-xs text-red-500 mt-1.5 hidden">Kunci verifikasi salah! Silakan coba lagi.</p>
+            </div>
+            <button onclick="verifyKey()" class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2.5 rounded-lg shadow transition text-sm">
+                Masuk & Gunakan Alat
+            </button>
+            <p class="text-[10px] text-slate-400">Hint default: <span class="font-mono bg-slate-100 px-1 py-0.5 rounded">qris2026</span></p>
+        </div>
+    </div>
+
+    <!-- KONTROL UTAMA GENERATOR QRIS -->
+    <div id="appContainer" class="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100 opacity-0 pointer-events-none transition-opacity duration-500">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-red-600 to-red-700 p-6 text-white text-center flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight text-left">QRIS Generator</h1>
+                <p class="text-red-100 text-sm mt-1 text-left">Alat Standar Indonesia Terverifikasi</p>
+            </div>
+            <button onclick="logout()" class="bg-red-800 hover:bg-red-900 text-white text-xs px-3 py-1.5 rounded-lg shadow transition">
+                Keluar
+            </button>
+        </div>
+
+        <!-- Form Body -->
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Jenis QRIS</label>
+                <select id="qrisType" onchange="toggleAmountInput()" class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none text-sm transition bg-white">
+                    <option value="dynamic">QRIS Dinamis (Dengan Nominal)</option>
+                    <option value="static">QRIS Statik (Tanpa Nominal / Bebas)</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Nama Merchant / Toko</label>
+                <input type="text" id="merchantName" placeholder="Contoh: Kedai Kopi Nusantara" value="Toko Berkah Jaya" class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none text-sm transition">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Alamat Merchant</label>
+                <input type="text" id="merchantAddress" placeholder="Contoh: Jl. Sudirman No. 123, Jakarta" value="Jl. Merdeka No. 45, Jakarta" class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none text-sm transition">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">NMID (Nomor Identitas Merchant)</label>
+                <input type="text" id="nmid" placeholder="ID1029384756382" value="ID1020304050607" class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none text-sm transition">
+            </div>
+
+            <div id="amountWrapper">
+                <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Nominal (Rp)</label>
+                <input type="number" id="amount" placeholder="50000" value="25000" class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none text-sm transition">
+            </div>
+
+            <button onclick="generateQR()" class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3 rounded-lg shadow-md hover:shadow-lg transition text-sm">
+                Perbarui QR Code
+            </button>
+        </div>
+
+        <!-- QR Output Section -->
+        <div class="bg-slate-50 border-t border-slate-100 p-6 flex flex-col items-center justify-center space-y-4">
+            <div id="qris-card" class="bg-white p-4 rounded-xl shadow-inner border border-slate-200 flex flex-col items-center w-full">
+                <div class="flex items-center space-x-2 mb-1">
+                    <span class="text-xs font-extrabold tracking-widest text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-200">QRIS</span>
+                    <span id="labelMerchant" class="text-xs font-bold text-slate-700 truncate max-w-[180px]">Toko Berkah Jaya</span>
+                </div>
+                <p id="labelAddress" class="text-[11px] text-slate-400 mb-3 text-center truncate max-w-[240px]">Jl. Merdeka No. 45, Jakarta</p>
+                
+                <div id="qrcode" class="p-2 bg-white rounded"></div>
+                
+                <div id="amountContainer" class="mt-3 text-center">
+                    <p class="text-xs text-slate-500">Jumlah Pembayaran:</p>
+                    <p id="labelAmount" class="text-base font-bold text-slate-800">Rp 25.000</p>
+                </div>
+            </div>
+
+            <button onclick="downloadQR()" class="w-full max-w-xs bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 rounded-lg text-sm shadow transition flex items-center justify-center space-x-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                <span>Unduh Gambar QRIS</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const CORRECT_KEY = "qris2026"; // <-- Ubah kunci rahasia Anda di sini
+        let qrcodeObj = null;
+
+        function verifyKey() {
+            const inputVal = document.getElementById('authKeyInput').value;
+            const errorMsg = document.getElementById('errorMsg');
+            const authModal = document.getElementById('authModal');
+            const appContainer = document.getElementById('appContainer');
+
+            if (inputVal === CORRECT_KEY) {
+                // Sembunyikan modal verifikasi dan tampilkan aplikasi
+                authModal.classList.add('hidden');
+                appContainer.classList.remove('opacity-0', 'pointer-events-none');
+                toggleAmountInput();
+            } else {
+                errorMsg.classList.remove('hidden');
+                document.getElementById('authKeyInput').focus();
+            }
+        }
+
+        function logout() {
+            document.getElementById('authKeyInput').value = "";
+            document.getElementById('errorMsg').classList.add('hidden');
+            document.getElementById('authModal').classList.remove('hidden');
+            document.getElementById('appContainer').classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        function formatRupiah(angka) {
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
+        }
+
+        function toggleAmountInput() {
+            const type = document.getElementById('qrisType').value;
+            const amountWrapper = document.getElementById('amountWrapper');
+            const amountContainer = document.getElementById('amountContainer');
+
+            if (type === 'static') {
+                amountWrapper.style.display = 'none';
+                amountContainer.style.display = 'none';
+            } else {
+                amountWrapper.style.display = 'block';
+                amountContainer.style.display = 'block';
+            }
+            generateQR();
+        }
+
+        function generateQR() {
+            const type = document.getElementById('qrisType').value;
+            const name = document.getElementById('merchantName').value || 'Merchant';
+            const address = document.getElementById('merchantAddress').value || 'Jakarta';
+            const nmid = document.getElementById('nmid').value || 'ID0000000';
+            const amount = document.getElementById('amount').value || '0';
+
+            document.getElementById('labelMerchant').innerText = name;
+            document.getElementById('labelAddress').innerText = address;
+
+            let payload = '';
+
+            if (type === 'dynamic') {
+                document.getElementById('labelAmount').innerText = formatRupiah(amount);
+                payload = `00020101021226580016ID.CO.QRIS.WWW011893600914${nmid}0215ID2023000000000530336054${amount.length.toString().padStart(2, '0')}${amount}5802ID59${name.length.toString().padStart(2, '0')}${name}60${address.length.toString().padStart(2, '0')}${address}6304`;
+            } else {
+                payload = `00020101021126580016ID.CO.QRIS.WWW011893600914${nmid}0215ID2023000000000530335802ID59${name.length.toString().padStart(2, '0')}${name}60${address.length.toString().padStart(2, '0')}${address}6304`;
+            }
+
+            document.getElementById("qrcode").innerHTML = "";
+
+            qrcodeObj = new QRCode(document.getElementById("qrcode"), {
+                text: payload,
+                width: 200,
+                height: 200,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.M
+            });
+        }
+
+        function downloadQR() {
+            const img = document.querySelector('#qrcode img');
+            if (!img) {
+                alert("Silakan generate QR terlebih dahulu!");
+                return;
+            }
+            const link = document.createElement('a');
+            link.download = 'qris-payment.png';
+            link.href = img.src;
+            link.click();
+        }
+
+        // Shortcut keyboard Enter untuk login cepat
+        document.getElementById('authKeyInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                verifyKey();
+            }
+        });
+    </script>
+</body>
+</html>
